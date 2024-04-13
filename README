@@ -1,0 +1,27 @@
+Code for Kaggle Challenge Protein Stability Prediction (MLB S24) for MLCB Course Spring 2024 
+
+
+Packages:
+pandas
+seaborn
+matplotlib
+numpy 
+umap-learn
+scikit-learn
+scipy
+
+
+For 
+pytorch
+transformers (for the ESM model and tokenizer)
+
+
+To run: 
+ensure the train.csv and test.csv directories are in the correct location. default is ../train.csv, ../test.csv but can pass as argument 
+Run:
+python build_dataset_final_train.py  
+python build_dataset_final_test.py 
+to generate training and test set embeddings ( can customize location for output embeddings )
+
+
+Run process_embeddings.ipynb for all downstream steps  

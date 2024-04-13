@@ -22,7 +22,7 @@ from torch.utils.data import Dataset, DataLoader, random_split
 
 
 class DataFrameDataset(Dataset):
-    def __init__(self, dataframe, sequence_column='sequence', target_column='id'):
+    def __init__(self, dataframe, sequence_column='sequence', target_column='target'):
         """
         Args:
             dataframe (pd.DataFrame): input dataframe
@@ -30,14 +30,13 @@ class DataFrameDataset(Dataset):
             target_column (str): column in the dataframe that contains the targets
         """
         self.sequences = dataframe[sequence_column].tolist()
-        self.id = dataframe[target_column].tolist()
-        # self.targets = dataframe[target_column].tolist()
-        
+        self.targets = dataframe[target_column].tolist()
+
     def __len__(self):
         return len(self.sequences)
 
     def __getitem__(self, idx):
-        return self.sequences[idx], self.id[idx] # self.targets[idx]  ,  # Returns the sequence and target at the given index
+        return self.sequences[idx], self.targets[idx]  # Returns the sequence and target at the given index
 
 
 # def create_data_loader(sequences, batch_size=32):
@@ -46,7 +45,7 @@ class DataFrameDataset(Dataset):
 #     return DataLoader(dataset, batch_size=batch_size, shuffle=False)
 parser = argparse.ArgumentParser()
 parser.add_argument('--output_dir', type=str, default='./kaggle_op/',  help='Dataset directory')
-parser.add_argument('--csv', type=str, default='../test.csv')
+parser.add_argument('--csv', type=str, default='../train.csv')
 parser.add_argument('--test_split', type=float, default=0.1)
 parser.add_argument('--seed', type=int, default=25)
 # parser.add_argument('--split_csv', type=str, default=None,
@@ -67,29 +66,37 @@ def main():
 
     dataset = DataFrameDataset(pd.read_csv(args.csv))
     # split into training and test data 
-    #train_size = int((1-2*args.test_split) * len(dataset))
-    #test_size = len(dataset) - train_size
-    train_dataset,_ = random_split(dataset, [len(dataset), 0])
-
-    print(len(train_dataset))
+    train_size = int((1-2*args.test_split) * len(dataset))
+    test_size = len(dataset) - train_size
+    train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
 
     # Create data loaders
     batch_size = 256
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-
-    dataset_dir_train = Path(args.output_dir + '/test/')
+    dataset_dir_train = Path(args.output_dir + '/train/')
     dataset_dir_train.mkdir(parents=True, exist_ok=True)
 
-    for i, (batch_sequences, batch_ids) in enumerate(train_loader):
-        print(i)
+    for i, (batch_sequences, batch_targets) in enumerate(train_loader):
         inputs = tokenizer(batch_sequences, return_tensors="pt", padding=True, truncation=True)
         with torch.no_grad():
             outputs = model(**inputs)
         embeddings = outputs.last_hidden_state.detach()
         pooled_output = embeddings.mean(dim=1)
-        torch.save((pooled_output,batch_ids), f'{args.output_dir}/test/test_embeddings_targets_batch_{i}.pt')
-        print(f'{args.output_dir}/test/test_embeddings_targets_batch_{i}.pt')
+        torch.save((pooled_output, batch_targets), f'{args.output_dir}/train/train_embeddings_targets_batch_{i}.pt')
+
+    dataset_dir_validate = Path(args.output_dir + '/validate/')
+    dataset_dir_validate.mkdir(parents=True, exist_ok=True)
+
+    # Process test batches
+    for i, (batch_sequences, batch_targets) in enumerate(test_loader):
+        inputs = tokenizer(batch_sequences, return_tensors="pt", padding=True, truncation=True)
+        with torch.no_grad():
+            outputs = model(**inputs)
+        embeddings = outputs.last_hidden_state.detach()
+        pooled_output = embeddings.mean(dim=1)
+        torch.save((pooled_output, batch_targets), f'{args.output_dir}/validate/test_embeddings_targets_batch_{i}.pt')
 
 
 
